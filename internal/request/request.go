@@ -16,6 +16,13 @@ type Request struct {
 	RequestLine RequestLine
 }
 
+type parserState string
+
+const(
+	StateInit parserState = "init"
+	StateDone parserState = "done"
+)
+
 var SEPARATOR="\r\n"
 
 func parseRequestLine(s string) (*RequestLine,string,error){
@@ -25,11 +32,26 @@ func parseRequestLine(s string) (*RequestLine,string,error){
 	}
 	reqLine:=s[:idx]
 	remaining:=s[idx+len(SEPARATOR):]
-
+  
 	parts:=strings.Split(reqLine," ")
+
+	if len(parts)!=3{
+		return nil,"",fmt.Errorf("Wrong request line format")
+	}
+
+	httpVer:=strings.Split(parts[2],"/")
+	if len(httpVer)!=2 || httpVer[0]!="HTTP" || httpVer[1]!="1.1"{
+		return nil,"",fmt.Errorf("Unsupported http version")
+	}
+
+	if strings.ToUpper(parts[0])!=parts[0]{
+		return nil,"",fmt.Errorf("Unsupported method format")
+	}
 
 	return &RequestLine{
 		Method: parts[0],
+		RequestTarget: parts[1],
+		HttpVersion:httpVer[1] ,
 		
 	},remaining,nil
 }
