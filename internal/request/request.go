@@ -1,9 +1,17 @@
 package request
 
 import (
+	"bytes"
 	"fmt"
 	"io"
 	"strings"
+)
+
+type parserState string
+
+const(
+	StateInit parserState = "init"
+	StateDone parserState = "done"
 )
 
 type RequestLine struct {
@@ -14,61 +22,100 @@ type RequestLine struct {
 
 type Request struct {
 	RequestLine RequestLine
+	state parserState
 }
 
-type parserState string
-
-const(
-	StateInit parserState = "init"
-	StateDone parserState = "done"
-)
-
-var SEPARATOR="\r\n"
-
-func parseRequestLine(s string) (*RequestLine,string,error){
-	idx:=strings.Index(s,SEPARATOR)
-	if idx==-1{
-		return nil,"",fmt.Errorf("No strat line found")
+func newRequest() *Request{
+	return &Request{
+		state: StateInit,
 	}
-	reqLine:=s[:idx]
-	remaining:=s[idx+len(SEPARATOR):]
+}
+
+func (r *Request) parse(data []byte) (int, error){
+	read:=0
+outer:
+	for{
+		switch r.state{
+		case StateInit:
+			rl,n,err:=parseRequestLine(data[read:])
+			if err!=nil{
+				return 0,err
+			}
+			if n==0{
+				break outer
+			}
+			r.RequestLine=*rl
+			read+=n
+			r.state=StateDone
+		case StateDone:
+			break outer
+		}
+	}
+
+	return read,nil
+}
+
+func (r *Request) done() bool{
+	return r.state==StateDone
+}
+
+
+var SEPARATOR=[]byte("\r\n")
+
+func parseRequestLine(b []byte) (*RequestLine,int,error){
+	idx:=bytes.Index(b,SEPARATOR)
+	if idx==-1{
+		return nil,0,nil
+	}
+	reqLine:=b[:idx]
+	read:= idx+len(SEPARATOR)
   
-	parts:=strings.Split(reqLine," ")
+	parts:=bytes.Split(reqLine,[]byte(" "))
 
 	if len(parts)!=3{
-		return nil,"",fmt.Errorf("Wrong request line format")
+		return nil,0,fmt.Errorf("Wrong request line format")
 	}
 
-	httpVer:=strings.Split(parts[2],"/")
-	if len(httpVer)!=2 || httpVer[0]!="HTTP" || httpVer[1]!="1.1"{
-		return nil,"",fmt.Errorf("Unsupported http version")
+	httpVer:=bytes.Split(parts[2],[]byte("/"))
+	if len(httpVer)!=2 || string(httpVer[0])!="HTTP" || string(httpVer[1])!="1.1"{
+		return nil,0,fmt.Errorf("Unsupported http version")
 	}
 
-	if strings.ToUpper(parts[0])!=parts[0]{
-		return nil,"",fmt.Errorf("Unsupported method format")
+	if strings.ToUpper(string(parts[0]))!=string(parts[0]){
+		return nil,0,fmt.Errorf("Unsupported method format")
 	}
 
 	return &RequestLine{
-		Method: parts[0],
-		RequestTarget: parts[1],
-		HttpVersion:httpVer[1] ,
+		Method: string(parts[0]),
+		RequestTarget: string(parts[1]),
+		HttpVersion:string(httpVer[1]) ,
 		
-	},remaining,nil
+	},read,nil
 }
 
 func RequestFromReader(reader io.Reader) (*Request, error){
-	bytes,err:=io.ReadAll(reader)
-	if err!=nil{
-		return nil,err
-	}
-	request:=&Request{}
-	requestLine,next,err:=parseRequestLine(string(bytes))
-	if err!=nil{
-		return nil,err
-	}
-	request.RequestLine=*requestLine
-	fmt.Println(next)
+	request:=newRequest()
 
+	buf:= make([]byte,1024)
+	// What if bufLen exceeds??? How to take care of it
+	bufLen:=0
+	for !request.done(){
+		n,err:=reader.Read(buf[bufLen:])
+		if err!=nil{
+			return nil,err
+		}
+		bufLen+=n
+
+		readN,err:=request.parse(buf[:bufLen+n])
+		if err!=nil{
+			return nil,err
+		}
+
+		copy(buf,buf[readN:bufLen])
+		bufLen-=readN
+
+	}
+	
 	return request,nil
 
 }
