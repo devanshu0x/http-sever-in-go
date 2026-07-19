@@ -14,12 +14,6 @@ func NewHeaders() Headers {
 
 var crlf= []byte("\r\n")
 
-func parseHeader(data []byte) (){
-	if(len(data)==0){
-
-	}
-}
-
 func isTokenChar(c byte) bool {
     switch {
     case 'a' <= c && c <= 'z':
@@ -47,6 +41,16 @@ func validHeaderKey(key []byte) bool {
 	}
 
 	return true
+}
+
+func (h Headers) Get(key string) string{
+	key=strings.ToLower(key)
+
+	val,ok:= h[key]
+	if !ok{
+		return ""
+	}
+	return val
 }
 
 func (h Headers) Parse(data []byte) (n int, done bool, err error){
