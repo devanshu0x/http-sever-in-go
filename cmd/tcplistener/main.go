@@ -2,47 +2,12 @@ package main
 
 import (
 	"fmt"
-	"io"
 	"log"
 	"net"
-	"strings"
+	"github.com/devanshu0x/http-sever-in-go/internal/request"
 )
 
-func getLinesChannel(f io.ReadCloser) <-chan string {
-	s := make(chan string)
 
-	go func() {
-		defer close(s)
-		defer f.Close()
-		buff := make([]byte, 8)
-		var currentLine string
-		for {
-			length, err := f.Read(buff)
-			if err != nil {
-				if err == io.EOF {
-					if currentLine != "" {
-						s <- currentLine
-					}
-					break
-				}
-				fmt.Println("Error: ", err)
-				break
-			}
-			parts := strings.Split(string(buff[:length]), "\n")
-			for i, part := range parts {
-				if i+1 == len(parts) {
-					currentLine += part
-				} else {
-					currentLine += part
-					s <- currentLine
-					currentLine = ""
-				}
-			}
-		}
-	}()
-
-	return s
-}
 
 func main() {
 	listener,err:=net.Listen("tcp","127.0.0.1:42069")
@@ -58,11 +23,15 @@ func main() {
 			continue
 		}
 		fmt.Println("Connection is accepted")
-		ch:= getLinesChannel(conn)
-
-		for val := range ch {
-		fmt.Println(val)
+		
+		req,err:=request.RequestFromReader(conn)
+		if err!=nil{
+			fmt.Printf("Some error occured: %v",err)
 		}
+		fmt.Println("Request line:")
+		fmt.Printf("- Method: %s\n",req.RequestLine.Method)
+		fmt.Printf("- Target: %s\n",req.RequestLine.RequestTarget)
+		fmt.Printf("- Version: %s\n",req.RequestLine.HttpVersion)
 	}
 
 	// s := getLinesChannel(file)
