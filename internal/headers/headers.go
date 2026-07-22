@@ -53,6 +53,11 @@ func (h Headers) Get(key string) string{
 	return val
 }
 
+func (h Headers) Set(key, val string){
+	key=strings.ToLower(key)
+	h[key]=val
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error){
 	bytesRead:=0;
 	idx:=bytes.Index(data,crlf)
