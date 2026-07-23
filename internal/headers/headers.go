@@ -58,6 +58,20 @@ func (h Headers) Set(key, val string){
 	h[key]=val
 }
 
+func (h Headers) Remove(key string){
+		key=strings.ToLower(key)
+		delete(h,key)
+}
+
+func (h Headers) Add(key, val string){
+	key=strings.ToLower(key)
+	if v,ok:=h[key]; ok{
+		h[key]=fmt.Sprintf("%s, %s",v,val)
+	}else{	
+		h[key]=val
+	}
+}
+
 func (h Headers) Parse(data []byte) (n int, done bool, err error){
 	bytesRead:=0;
 	idx:=bytes.Index(data,crlf)

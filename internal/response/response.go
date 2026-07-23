@@ -83,6 +83,38 @@ func (w *Writer) WriteBody(p []byte) (int ,error){
 	return w.res.Write(p)
 }
 
+func (w *Writer) WriteChunkedBody(p []byte) (int, error){
+	if _,err:=w.WriteBody([]byte(fmt.Sprintf("%X\r\n",len(p))));err!=nil{
+		return 0,err
+	}
+	if _,err:=w.WriteBody(p);err!=nil{
+		return 0,err
+	}
+	if _,err:=w.WriteBody([]byte("\r\n"));err!=nil{
+		return 0,err
+	}
+
+	return len(p),nil
+}
+
+func (w *Writer) WriteChunkedBodyDone() (int, error){
+	if _,err:=w.WriteBody([]byte("0\r\n"));err!=nil{
+		return 0,nil
+	}
+	return 1,nil
+}
+
+func (w *Writer) WriteTrailers(h headers.Headers) error{
+	for key,val:=range h{
+		_,err:=fmt.Fprintf(w.res,"%s: %s\r\n",key,val)
+		if err!=nil{
+			return err
+		}
+	}
+
+	w.res.Write([]byte("\r\n"))
+	return nil
+}
 
 func GetDefaultHeaders(contentLen int) headers.Headers{
 	headers:=headers.NewHeaders()
@@ -92,5 +124,5 @@ func GetDefaultHeaders(contentLen int) headers.Headers{
 	headers.Set("Content-Type","text/plain")
 
 	return headers
-}
+} 
 
